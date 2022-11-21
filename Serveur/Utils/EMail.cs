@@ -15,6 +15,7 @@ namespace Server.Utils
 
 		static public void SendMessages()
 		{
+			/*
 			Email._smtpClient.Connect("iut-dijon.u-bourgogne.fr", 25, SecureSocketOptions.StartTls);
 			Email._smtpClient.Authenticate(Email._ADDRESS, Email._PASSWORD);
 			
@@ -32,6 +33,7 @@ namespace Server.Utils
 					Console.WriteLine("Couldn't send email: {0}", e);
 				}
 			}
+			//*/
 		}
 
 		public Email(String recipient, String subject, String body) : base ()
