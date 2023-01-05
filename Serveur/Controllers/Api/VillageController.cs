@@ -319,5 +319,28 @@ namespace Server.Controllers.Api
             };
         }
 
+        [HttpPost("{idBatiment}/batiment/set/last_update")]
+        public async Task<IActionResult> SetLastUpdateBatiment(int idBatiment)
+        {
+            bool result = await Database.VillageDB.SetStartTimeBatimentFunction(idBatiment);
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idBatiment}/batiment/get/last_update")]
+        public async Task<IActionResult> GetLastUpdateBatiment(int idBatiment)
+        {
+            int? result = await Database.VillageDB.GetStartTimeBatimentFunction(idBatiment);
+
+            return new ContentResult
+            {
+                Content= JsonSerializer.Serialize(result),
+                ContentType= "application/json; charset=UTF-8",
+            };
+
+        }
     }
 }

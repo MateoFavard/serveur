@@ -768,6 +768,54 @@ namespace Server.Database
             return res;
         }
 
+        static public async Task<bool> SetStartTimeBatimentFunction(int idB)
+        {
+            bool res = false;
+            using (MySqlConnection conn = DatabaseConnection.NewConnection())
+            {
+                await conn.OpenAsync();
+                try
+                {
+                    string query = "UPDATE BATIMENT SET START_TIME = @date WHERE ID_BATIMENT = @idB ";
+                    MySqlCommand cmd = new MySqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@date", DateTime.Now);
+                    cmd.Parameters.AddWithValue("@idV", idB);
+                    await cmd.ExecuteNonQueryAsync();
+                    res = true;
+                }
+                catch (MySqlException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+            return res;
+        }
+
+        static public async Task<int?> GetStartTimeBatimentFunction(int idB)
+        {
+            int? res = null;
+            using (MySqlConnection conn = DatabaseConnection.NewConnection())
+            {
+                await conn.OpenAsync();
+                try
+                {
+                    string query = "SELECT START_TIME FROM BATIMENT WHERE ID_BATIMENT = @idB";
+                    MySqlCommand cmd = new MySqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@idB", idB);
+                    MySqlDataReader dataReader = cmd.ExecuteReader();
+                    if (dataReader.Read())
+                    {
+                        res = (int)Math.Round(DateTime.Now.TimeOfDay.TotalSeconds - dataReader.GetMySqlDateTime(0).GetDateTime().TimeOfDay.TotalSeconds);
+                    }
+                }
+                catch (MySqlException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+            return res;
+        }
+
 
         static public async Task<int> GetTimeBatimentFonction(int idP)
         {
