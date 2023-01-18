@@ -343,10 +343,12 @@ namespace Server.Controllers.Api
 
         }
 
-        [HttpGet("{idVillage}/taverne/get/time_batiment")]
-        public async Task<IActionResult> GetLastStartTimeTaverne(int idVillage)
+        
+
+        [HttpGet("{idVillage}/taverne/set/time_batiment")]
+        public async Task<IActionResult> SetStartTimeTaverne(int idVillage)
         {
-            int? result = await Database.VillageDB.GetStartTimeTavernFunction(idVillage);
+            bool result = await Database.VillageDB.SetStartTimeTaverne(idVillage);
 
             return new ContentResult
             {
@@ -355,10 +357,11 @@ namespace Server.Controllers.Api
             };
         }
 
-        [HttpGet("{idVillage}/taverne/set/time_batiment")]
-        public async Task<IActionResult> SetStartTimeTaverne(int idVillage)
+        [HttpGet("{idVillage}/taverne/get/time_batiment")]
+        public async Task<IActionResult> GetLastStartTimeTaverne(int idVillage)
         {
-            bool result = await Database.VillageDB.SetStartTimeBatimentFunction(idVillage);
+            await Database.VillageDB.SetStartTimeTaverne(idVillage);
+            int? result = await Database.VillageDB.GetStartTimeTavern(idVillage);
 
             return new ContentResult
             {

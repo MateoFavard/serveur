@@ -124,7 +124,7 @@ namespace Server.Database
             {
                 await conn.OpenAsync();
 
-                string query = "INSERT INTO BATIMENT (TYPE_BATIMENT,NIVEAU,ID_VILLAGE,EN_CONSTRUCTION) VALUES (@TB,1,@idV,FALSE);";
+                string query = "INSERT INTO BATIMENT (TYPE_BATIMENT,NIVEAU,ID_VILLAGE,EN_CONSTRUCTION,START_TIME) VALUES (@TB,1,@idV,FALSE,@date);";
                 try
                 {
                     for (int i = 0; i < 5; i++)
@@ -132,6 +132,7 @@ namespace Server.Database
                         MySqlCommand cmd = new MySqlCommand(query, conn);
                         cmd.Parameters.AddWithValue("@idV", idV);
                         cmd.Parameters.AddWithValue("@TB", bat[i]);
+                        cmd.Parameters.AddWithValue("@date", DateTime.Now);
                         await cmd.ExecuteNonQueryAsync();
                         res = true;
                     }
@@ -743,7 +744,7 @@ namespace Server.Database
         /// <param name="idP"></param>
         /// <returns></returns>
 
-        static public async Task<bool> SetStartTimeBatimentFunction(int idV)
+        static public async Task<bool> SetStartTimeTaverne(int idV)
         {
             bool res = false;
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
@@ -751,7 +752,7 @@ namespace Server.Database
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "UPDATE BATIMENT SET START_TIME = @date WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = TAVERN";
+                    string query = "UPDATE BATIMENT SET START_TIME = @date WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = 'TAVERN'";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
                     cmd.Parameters.AddWithValue("@date", DateTime.Now);
                     cmd.Parameters.AddWithValue("@idV", idV);
@@ -771,15 +772,15 @@ namespace Server.Database
         /// </summary>
         /// <param name="idV"></param>
         /// <returns></returns>
-        static public async Task<int?> GetStartTimeTavernFunction(int idV)
+        static public async Task<int> GetStartTimeTavern(int idV)
         {
-            int? res = null;
+            int res = -1;
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
             {
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "SELECT START_TIME FROM BATIMENT  WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = TAVERN";
+                    string query = "SELECT START_TIME FROM BATIMENT  WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = 'TAVERN'";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
                     cmd.Parameters.AddWithValue("@idV", idV);
                     MySqlDataReader dataReader = cmd.ExecuteReader();
