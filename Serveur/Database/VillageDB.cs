@@ -147,10 +147,7 @@ namespace Server.Database
         /// <summary>
         /// augemente le niveau d'un batiment de plus 1 et retire les ressource spécifié
         /// </summary>
-        /// <param name="idB"></param>
-        /// <param name="coutB"></param>
-        /// <param name="coutP"></param>
-        /// <param name="coutO"></param>
+        
         /// <returns></returns>
         static public async Task<bool> UpBatiment(int idV, string building)
         {
@@ -520,11 +517,11 @@ namespace Server.Database
         /// </summary>
         /// <param name="idP"></param>
         /// <returns>l'id du PERSONNAGE</returns>
-        static public async Task<int?> InitRandomPerso(int idV)
+        static public async Task<int> InitRandomPerso(int idV)
         {
             string[] classe = {"ARCHER","GUERRIER","SORCIER","TANK"};
             string[] race = { "ELFE", "NAIN", "HUMAIN", "HOBBIT" };
-            int? idPR = null;
+            int idPR = -1;
             Random random = new Random();
             int raceI = random.Next(3);
             int classeI = random.Next(3);
@@ -594,7 +591,7 @@ namespace Server.Database
             return idE;
         }
 
-        static public async Task<Model.Equipement> GetEquipement(int idEquipement)
+        static public async Task<Model.Equipement> GetEquipement(int idPersonnage)
         {
             Model.Equipement equipement = new Model.Equipement();
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
@@ -602,9 +599,9 @@ namespace Server.Database
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "SELECT ID_EQUIPEMENT,BONUS_ARMURE, BONUS_ARME, IMG_ARMURE, IMG_ARME, NIVEAU_ARME, NIVEAU_ARMURE FROM EQUIPEMENT WHERE ID_EQUIPEMENT = @idE";
+                    string query = "SELECT ID_EQUIPEMENT,BONUS_ARMURE, BONUS_ARME, IMG_ARMURE, IMG_ARME, NIVEAU_ARME, NIVEAU_ARMURE FROM EQUIPEMENT WHERE ID_EQUIPEMENT = (SELECT ID_EQUIPEMENT FROM PERSONNAGE WHERE ID_PERSONNAGE = @idP)";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@idE", idEquipement);
+                    cmd.Parameters.AddWithValue("@idP", idPersonnage);
                     MySqlDataReader dataReader = cmd.ExecuteReader();
                     while (dataReader.Read())
                     {
@@ -741,11 +738,12 @@ namespace Server.Database
         }
 
         /// <summary>
-        /// update l'attribut Start_TIme de stock perso et le set à l'heure actuel pour le perso préciser
+        /// update l'attribut Start_TIme de batiment et le set à l'heure actuel 
         /// </summary>
         /// <param name="idP"></param>
         /// <returns></returns>
-        static public async Task<bool> StartBatimentFunction(int idP)
+
+        static public async Task<bool> SetStartTimeBatimentFunction(int idV)
         {
             bool res = false;
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
@@ -753,10 +751,10 @@ namespace Server.Database
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "UPDATE STOCK_BATIMENT SET START_TIME = @date WHERE ID_PERSONNAGE = @idP ";
+                    string query = "UPDATE BATIMENT SET START_TIME = @date WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = TAVERN";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
                     cmd.Parameters.AddWithValue("@date", DateTime.Now);
-                    cmd.Parameters.AddWithValue("@idP", idP);
+                    cmd.Parameters.AddWithValue("@idV", idV);
                     await cmd.ExecuteNonQueryAsync();
                     res = true;
                 }
@@ -768,30 +766,12 @@ namespace Server.Database
             return res;
         }
 
-        static public async Task<bool> SetStartTimeBatimentFunction(int idB)
-        {
-            bool res = false;
-            using (MySqlConnection conn = DatabaseConnection.NewConnection())
-            {
-                await conn.OpenAsync();
-                try
-                {
-                    string query = "UPDATE BATIMENT SET START_TIME = @date WHERE ID_BATIMENT = @idB ";
-                    MySqlCommand cmd = new MySqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@date", DateTime.Now);
-                    cmd.Parameters.AddWithValue("@idV", idB);
-                    await cmd.ExecuteNonQueryAsync();
-                    res = true;
-                }
-                catch (MySqlException ex)
-                {
-                    Console.WriteLine(ex.Message);
-                }
-            }
-            return res;
-        }
-
-        static public async Task<int?> GetStartTimeBatimentFunction(int idB)
+        /// <summary>
+        /// retourne le nombre de seconde depuis la dernière update du start time de la taverne 
+        /// </summary>
+        /// <param name="idV"></param>
+        /// <returns></returns>
+        static public async Task<int?> GetStartTimeTavernFunction(int idV)
         {
             int? res = null;
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
@@ -799,9 +779,9 @@ namespace Server.Database
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "SELECT START_TIME FROM BATIMENT WHERE ID_BATIMENT = @idB";
+                    string query = "SELECT START_TIME FROM BATIMENT  WHERE ID_VILLAGE = @idV and TYPE_BATIMENT = TAVERN";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@idB", idB);
+                    cmd.Parameters.AddWithValue("@idV", idV);
                     MySqlDataReader dataReader = cmd.ExecuteReader();
                     if (dataReader.Read())
                     {
@@ -816,23 +796,19 @@ namespace Server.Database
             return res;
         }
 
-
-        static public async Task<int> GetTimeBatimentFonction(int idP)
+        static public async Task<bool> DeleteAllCaracterFromTaverne(int idVillage)
         {
-            int res = 0;
+            bool res = false;
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
             {
                 await conn.OpenAsync();
                 try
                 {
-                    string query = "SELECT START_TIME FROM STOCK_PERSONNAGE WHERE ID_PERSONNAGE = @idP";
+                    string query = "DELETE FROM STOCK_PERSONNAGE WHERE ID_VILLAGE = @idVillage and ID_BATIMENT = (select ID_BATIMENT FROM BATIMENT where TYPE_BATIMENT = TAVERN);";
                     MySqlCommand cmd = new MySqlCommand(query, conn);
-                    cmd.Parameters.AddWithValue("@idV", idP);
-                    MySqlDataReader dataReader = cmd.ExecuteReader();
-                    if (dataReader.Read())
-                    {
-                        res = (int)Math.Round(DateTime.Now.TimeOfDay.TotalSeconds - dataReader.GetMySqlDateTime(0).GetDateTime().TimeOfDay.TotalSeconds);
-                    }
+                    cmd.Parameters.AddWithValue("@idV", idVillage);
+                    await cmd.ExecuteNonQueryAsync();
+                    res = true;
                 }
                 catch (MySqlException ex)
                 {
@@ -841,6 +817,7 @@ namespace Server.Database
             }
             return res;
         }
+
 
     }
 

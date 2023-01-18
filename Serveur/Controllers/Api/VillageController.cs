@@ -237,7 +237,7 @@ namespace Server.Controllers.Api
         [HttpGet("{idVill}/character/create")]
         public async Task<IActionResult> GenerateCharacter(int idVill)
         {
-            int? result = await Database.VillageDB.InitRandomPerso(idVill);
+            int result = await Database.VillageDB.InitRandomPerso(idVill);
 
             if (result is int id)
             {
@@ -296,7 +296,7 @@ namespace Server.Controllers.Api
         /// <param name="idVill">id of the village</param>
         /// <returns></returns>
         [HttpGet("{idVillage}/character/get")]
-        public async Task<IActionResult> GerCharacterByVillage(int idVillage)
+        public async Task<IActionResult> GetCharacterByVillage(int idVillage)
         {
             List<Model.Perso> result = await Database.VillageDB.GetPersoInVillage(idVillage);
 
@@ -319,10 +319,10 @@ namespace Server.Controllers.Api
             };
         }
 
-        [HttpPost("{idBatiment}/batiment/set/last_update")]
-        public async Task<IActionResult> SetLastUpdateBatiment(int idBatiment)
+        [HttpPost("{idBatiment}/{batiment}/batiment/set/last_update")]
+        public async Task<IActionResult> SetLastUpdateBatiment(int idVillage, string batiment)
         {
-            bool result = await Database.VillageDB.SetStartTimeBatimentFunction(idBatiment);
+            bool result = await Database.VillageDB.SetBuildingInConstruction(idVillage,batiment);
             return new ContentResult
             {
                 Content = JsonSerializer.Serialize(result),
@@ -330,10 +330,10 @@ namespace Server.Controllers.Api
             };
         }
 
-        [HttpGet("{idBatiment}/batiment/get/last_update")]
-        public async Task<IActionResult> GetLastUpdateBatiment(int idBatiment)
+        [HttpGet("{idBatiment}/{batiment}/batiment/get/last_update")]
+        public async Task<IActionResult> GetLastUpdateBatiment(int idVillage, string batiment)
         {
-            int? result = await Database.VillageDB.GetStartTimeBatimentFunction(idBatiment);
+            int? result = await Database.VillageDB.GetBuildingInConstructionTime(idVillage,batiment);
 
             return new ContentResult
             {
@@ -342,5 +342,43 @@ namespace Server.Controllers.Api
             };
 
         }
+
+        [HttpGet("{idVillage}/taverne/get/time_batiment")]
+        public async Task<IActionResult> GetLastStartTimeTaverne(int idVillage)
+        {
+            int? result = await Database.VillageDB.GetStartTimeTavernFunction(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/taverne/set/time_batiment")]
+        public async Task<IActionResult> SetStartTimeTaverne(int idVillage)
+        {
+            bool result = await Database.VillageDB.SetStartTimeBatimentFunction(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/taverne/delete_all")]
+        public async Task<IActionResult> DeleteAllCaracterFromTaverne(int idVillage)
+        {
+            bool result = await Database.VillageDB.DeleteAllCaracterFromTaverne(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        
     }
 }
