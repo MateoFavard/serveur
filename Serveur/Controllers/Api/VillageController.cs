@@ -360,8 +360,7 @@ namespace Server.Controllers.Api
         [HttpGet("{idVillage}/taverne/get/time_batiment")]
         public async Task<IActionResult> GetLastStartTimeTaverne(int idVillage)
         {
-            await Database.VillageDB.SetStartTimeTaverne(idVillage);
-            int? result = await Database.VillageDB.GetStartTimeTavern(idVillage);
+            int result = await Database.VillageDB.GetStartTimeTavern(idVillage);
 
             return new ContentResult
             {
@@ -382,6 +381,30 @@ namespace Server.Controllers.Api
             };
         }
 
-        
+        [HttpGet("{idVillage}/{idperso}/{batiment}/insertPersoInBatiment")]
+        public async Task<IActionResult> InsertPersoInBatiment(int idVillage,int idPerso, string batiment)
+        {
+            bool result = await Database.VillageDB.InsertPersoInBatiment(idPerso,idVillage,batiment);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/{batiment}/GetCharacterInBatiment")]
+        public async Task<IActionResult> GetCharacterInBatiment(int idVillage, string batiment)
+        {
+            var result = await Database.VillageDB.GetPersoInBatiment(idVillage,batiment);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+
     }
 }
