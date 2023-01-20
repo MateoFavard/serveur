@@ -237,7 +237,7 @@ namespace Server.Controllers.Api
         [HttpGet("{idVill}/character/create")]
         public async Task<IActionResult> GenerateCharacter(int idVill)
         {
-            int? result = await Database.VillageDB.InitRandomPerso(idVill);
+            int result = await Database.VillageDB.InitRandomPerso(idVill);
 
             if (result is int id)
             {
@@ -296,7 +296,7 @@ namespace Server.Controllers.Api
         /// <param name="idVill">id of the village</param>
         /// <returns></returns>
         [HttpGet("{idVillage}/character/get")]
-        public async Task<IActionResult> GerCharacterByVillage(int idVillage)
+        public async Task<IActionResult> GetCharacterByVillage(int idVillage)
         {
             List<Model.Perso> result = await Database.VillageDB.GetPersoInVillage(idVillage);
 
@@ -306,5 +306,105 @@ namespace Server.Controllers.Api
                 ContentType = "application/json; charset=UTF-8",
             };
         }
+
+        [HttpGet("{idVillage}/character/get/inventaire")]
+        public async Task<IActionResult> GetInventaire(int idVillage)
+        {
+            List<Model.Perso> result = await Database.VillageDB.GetPersoInInventaire(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpPost("{idBatiment}/{batiment}/batiment/set/last_update")]
+        public async Task<IActionResult> SetLastUpdateBatiment(int idVillage, string batiment)
+        {
+            bool result = await Database.VillageDB.SetBuildingInConstruction(idVillage,batiment);
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idBatiment}/{batiment}/batiment/get/last_update")]
+        public async Task<IActionResult> GetLastUpdateBatiment(int idVillage, string batiment)
+        {
+            int? result = await Database.VillageDB.GetBuildingInConstructionTime(idVillage,batiment);
+
+            return new ContentResult
+            {
+                Content= JsonSerializer.Serialize(result),
+                ContentType= "application/json; charset=UTF-8",
+            };
+
+        }
+
+        
+
+        [HttpGet("{idVillage}/taverne/set/time_batiment")]
+        public async Task<IActionResult> SetStartTimeTaverne(int idVillage)
+        {
+            bool result = await Database.VillageDB.SetStartTimeTaverne(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/taverne/get/time_batiment")]
+        public async Task<IActionResult> GetLastStartTimeTaverne(int idVillage)
+        {
+            int result = await Database.VillageDB.GetStartTimeTavern(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/taverne/delete_all")]
+        public async Task<IActionResult> DeleteAllCaracterFromTaverne(int idVillage)
+        {
+            bool result = await Database.VillageDB.DeleteAllCaracterFromTaverne(idVillage);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/{idperso}/{batiment}/insertPersoInBatiment")]
+        public async Task<IActionResult> InsertPersoInBatiment(int idVillage,int idPerso, string batiment)
+        {
+            bool result = await Database.VillageDB.InsertPersoInBatiment(idPerso,idVillage,batiment);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+        [HttpGet("{idVillage}/{batiment}/GetCharacterInBatiment")]
+        public async Task<IActionResult> GetCharacterInBatiment(int idVillage, string batiment)
+        {
+            var result = await Database.VillageDB.GetPersoInBatiment(idVillage,batiment);
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+            };
+        }
+
+
     }
 }
