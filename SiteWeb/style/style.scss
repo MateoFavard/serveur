@@ -1,0 +1,163 @@
+$gold: #ffc02b;
+
+body {
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: space-between;
+	min-height: 100vh;
+
+	font-family: "Exo 2", sans-serif;
+	font-size: 14pt;
+	background-color: #2b2a4e;
+	background-image: url("/static/menu_background.jpg");
+	background-size: cover; 
+}
+
+@mixin banner {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	justify-content: space-between;
+
+	background-color: #271c34;	
+	color: $gold;
+}
+
+header {
+	@include banner;
+
+	box-shadow: 0 2px 6px black;
+
+	div {
+		margin: 0 20px;
+
+		a {
+			padding: 10px 20px;
+		}
+	}
+
+	img {
+		width: 760px;
+		max-width: 100vw;
+	}
+
+	button {
+		@extend a;
+
+		background: none;
+		border: none;
+		outline: none;
+	
+		font-size: inherit;
+		font-family: inherit;
+	}
+
+	@media screen and (max-width: 1080px) {
+		flex-direction: column;
+		align-items: flex-start;
+		height: 120px;
+		justify-content: flex-start;
+
+		div {
+			align-self: flex-end;
+		}
+	}
+}
+
+footer {
+	@include banner;
+
+	height: 40px;
+	padding-left: 10px;
+	box-shadow: 0 -2px 6px black;
+}
+
+a {
+	text-decoration: none;
+	color: inherit;
+
+	&:hover {
+		text-decoration: underline;
+	}
+}
+
+main {
+	max-width: 600px;
+	width: 100%;
+	margin: 0 auto;
+}
+
+
+h1 {
+	font-size: 22pt;
+	text-align: center;
+	margin-top: 10px;
+	margin-bottom: 20px;
+}
+
+input {
+	display: block;
+	padding: 4px 8px;
+
+	font-size: inherit;
+	font-family: inherit;
+	background-color: white;
+	border: 2px solid white;
+	outline: 1px solid #777;
+
+	&:focus {
+		border-color: $gold;
+	}
+
+	&[type="text"], &[type="password"], &[type="email"] {
+		margin-top: 4px;
+		width: 90%;
+	}
+}
+
+div.box {
+	padding: 30px;
+	margin: 20px;
+	background-color: #fff;
+	box-shadow: 2px 2px 6px black;
+}
+
+div.input, div.captcha {
+	padding: 10px;
+}
+
+.error {
+	background-color: #ff5e5eb3;
+	padding: 5px;
+	text-align: center;
+}
+
+.loading {
+	text-align: center;
+	padding: 5px;
+	background-color: #0003;
+
+	&::after {
+		height: 14px;
+		width: 14px;
+		border-radius: 100%;
+		border: 2px solid transparent;
+		border-bottom-color: black;
+		border-left-color: black;
+		display: inline-block;
+		content: "";
+		animation: spin 1s infinite linear;
+		margin-left: 10px;
+	}
+}
+
+@keyframes spin {
+	from {
+		transform: none;
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}

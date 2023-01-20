@@ -43,10 +43,10 @@ namespace Server.Auth
                 return AuthenticateResult.Fail("Invalid Authorization Header");
             }
 
-            int? maybeUserId = await Account.CheckUsernamePassword(username, password);
+            (int? maybeUserId, bool validated) = await Account.CheckUsernamePassword(username, password);
             if (maybeUserId is int userId)
             {
-                var identity = new UserIdentity("Basic", userId);
+                var identity = new UserIdentity("Basic", userId, validated);
                 var principal = new ClaimsPrincipal(identity);
                 var ticket = new AuthenticationTicket(principal, Scheme.Name);
                 return AuthenticateResult.Success(ticket);

@@ -11,6 +11,7 @@ using System.Text;
 using System.Security.Principal;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
+using System.Drawing.Printing;
 
 namespace Server.Controllers.Api
 {
@@ -19,76 +20,182 @@ namespace Server.Controllers.Api
     public class AccountController : Controller
     {
         [HttpPost("signup")]
-        public async Task<IActionResult> SignUp(
-            [FromForm] String email,
-            [FromForm] String username,
-            [FromForm(Name = "g-recaptcha-response")] String recaptcha_response)
+        public async Task<IActionResult> SignUp(SignUpRequest signUpRequest)
         {
-            Captcha captcha = new Captcha(recaptcha_response);
+            Captcha captcha = new Captcha(signUpRequest.CaptchaToken);
+            int? maybeId = await Database.Account.UserExistsEmail(signUpRequest.Email);
+            bool regeneratePassword = false;
+
+            if (maybeId is int id)
+            {
+                if (await Database.Account.UserInfo(id) is Model.Account info)
+                {
+                    // Si un compte temporaire existe déjà avec le même nom d'utilisateur
+                    // et addresse mail, le compte est remplacé par un nouveau
+                    if (!info.IsValidated && info.Username == signUpRequest.Username)
+                    {
+                        regeneratePassword = true;
+                    }
+                    else
+                    {
+                        return new ContentResult
+                        {
+                            StatusCode = StatusCodes.Status400BadRequest,
+                            ContentType = "text/plain",
+                            Content = "Cette adresse mail est déja utilisée",
+                        };
+                    }
+                }
+                else
+                {
+                    return new ContentResult
+                    {
+                        StatusCode = StatusCodes.Status400BadRequest,
+                        ContentType = "text/plain",
+                        Content = "Cette adresse mail est déja utilisée",
+                    };
+                }
+            }
+            else if (await Database.Account.UserExists(signUpRequest.Username))
+            {
+                return new ContentResult
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    ContentType = "text/plain",
+                    Content = "Ce nom d'utilisateur est déja utilisé",
+                };
+            }
             
-            String tempPwd;
-            if (await Account.UserExistsEmail(email))
+            if (!(await captcha.IsValid()))
             {
-                return new RedirectResult("../../signup?error=emailexists", false);
+                return new ContentResult
+                {
+                    StatusCode = StatusCodes.Status400BadRequest,
+                    ContentType = "text/plain",
+                    Content = "Le CAPTCHA n'a pas été validé ou a expiré",
+                };
             }
-            else if (await Account.UserExists(username))
+            
+            String tempPwd = Util.RandomPassword(10);
+            if (regeneratePassword)
             {
-                return new RedirectResult("../../signup?error=usernameexists", false);
-            }
-            else if (!(await captcha.IsValid()))
-            {
-                return new RedirectResult("../../signup?error=invalidcaptcha", false);
+                if (!await Database.Account.UpdateMDP(tempPwd, maybeId.Value))
+                {
+                    return new StatusCodeResult(503);
+                }
             }
             else
             {
-                tempPwd = await Account.CreateTemp(email, username);
-
-                Email message = new Email(
-                    email,
-                    "Mot de passe provisoire",
-                    new PageTemplate("signup_email").render(new {
-                        password = tempPwd,
-                        username = username,
-                    })
-                );
-
-                message.Send();
-
-                return new RedirectResult("../../signup?success=true", false);
+                if (!await Database.Account.CreateTemp(signUpRequest.Email, signUpRequest.Username, tempPwd))
+                {
+                    return new StatusCodeResult(503);
+                }
             }
+
+            Email message = new Email(
+                signUpRequest.Email,
+                "Mot de passe provisoire",
+                Template.Get("signup_email.html").Render(signUpRequest.Username, tempPwd)
+            );
+
+            message.Send();
+
+            return new StatusCodeResult(201);
         }
 
         [Authorize(AuthenticationSchemes="Basic")]
         [HttpPost("signin")]
         public async Task<IActionResult> SignIn()
         {
-            String token = Utils.Utils.RandomPassword(30);
-            String response;
+            ContentResult result = new ContentResult
+            {
+                StatusCode = StatusCodes.Status500InternalServerError,
+                ContentType = "text/plain",
+                Content = "No result",
+            };
 
-            try {
-                String username = HttpContext.User.Identity!.Name!;
+            int? maybeId = HttpContext.User.UserId();
+            bool? maybeValidated = HttpContext.User.IsValidated();
 
-                if (await Account.CreateSession(UserIdentity.Get(username).Id, token))
+            if (maybeId is int id)
+            {
+                if (maybeValidated is bool validated)
                 {
-                    SignInSuccess data = new SignInSuccess(token);
-                    response = JsonSerializer.Serialize<SignInSuccess>(data);
+                    if (validated)
+                    {
+                        String token = Util.RandomPassword(30);
+
+                        if (await Database.Account.CreateSession(id, token))
+                        {
+                            result.Content = JsonSerializer.Serialize<SignInSuccess>(
+                                new SignInSuccess
+                                {
+                                    Validated = true,
+                                    SessionToken = token,
+                                },
+                                Util.DefaultJsonOptions
+                            );
+                            result.ContentType = "application/json; charset=UTF-8";
+                            result.StatusCode = StatusCodes.Status200OK;
+                        }
+                        else
+                        {
+                            result.Content = "Couldn't create session";
+                            result.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                        }
+                    }
+                    else
+                    {
+                        result.Content = JsonSerializer.Serialize<SignInSuccess>(
+                            new SignInSuccess
+                            {
+                                Validated = false,
+                            },
+                            Util.DefaultJsonOptions
+                        );
+                        result.ContentType = "application/json; charset=UTF-8";
+                        result.StatusCode = StatusCodes.Status200OK;
+                    }
+
+                }
+            }
+
+            return result;
+        }
+
+        [Authorize(AuthenticationSchemes = "Basic")]
+        [HttpPost("validate")]
+        public async Task<IActionResult> Validation([FromBody] string newPwd)
+        {
+            ContentResult result = new ContentResult
+            {
+                StatusCode = StatusCodes.Status500InternalServerError,
+                ContentType = "text/plain",
+                Content = "No result",
+            };
+
+            int id = HttpContext.User.UserId()!.Value;
+            bool validated = HttpContext.User.IsValidated()!.Value;
+
+            if (validated)
+            {
+                result.Content = "T'est déja valider par la street mon reuf";
+            }
+            else
+            {
+                bool updated = await Database.Account.UpdateMDP(newPwd, id);
+                bool userValidated =await Database.Account.ValidateUser(id);
+
+                if (userValidated && updated)
+                {
+                    return new StatusCodeResult(200);
                 }
                 else
                 {
-                    SignInFailure data = new SignInFailure("failed to create a session");
-                    response = JsonSerializer.Serialize<SignInFailure>(data);
-                }
-            }
-            catch (NullReferenceException)
-            {
-                SignInFailure data = new SignInFailure("unknown user");
-                response = JsonSerializer.Serialize<SignInFailure>(data);
+                    result.Content = "impossible de valider le compte";
+                }                
             }
 
-            var result = new ContentResult {
-                Content = response,
-                ContentType = "application/json; charset=UTF-8",
-            };
             return result;
         }
     }

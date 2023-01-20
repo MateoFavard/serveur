@@ -1,14 +1,9 @@
 namespace Server.Model
 {
-	class SignInSuccess : SignIn
+	class SignInSuccess
 	{
-		private String _authToken;
+		public bool? Validated { get; set; } = null;
 
-		public SignInSuccess(String authToken) : base(true)
-		{
-			this._authToken = authToken;
-		}
-
-		public String AuthToken => this._authToken;
+		public String? SessionToken { get; set; } = null;
 	}
 }

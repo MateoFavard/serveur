@@ -2,10 +2,11 @@ using System;
 using System.Data;
 using MySql.Data;
 using MySql.Data.MySqlClient;
+using Server.Utils;
 
 namespace Server.Database
 {
-	static public class Account
+	 public class Account
 	{
         static public async Task<bool> UserExists(string username)
         {
@@ -22,15 +23,6 @@ namespace Server.Database
                     cmd.Parameters.AddWithValue("@compte", username);
                     MySqlDataReader dataReader = cmd.ExecuteReader();
                     result = await dataReader.ReadAsync();
-                    Console.WriteLine(result);
-                    if (result)
-                    {
-                        result = true;
-                    }
-                    else
-                    {
-                        result = false;
-                    }
                 }
                 catch (MySqlException ex)
                 {
@@ -40,9 +32,10 @@ namespace Server.Database
             return result;
         }
 
-		static public async Task<bool> UserExistsEmail(string emailAddress)
+		static public async Task<int?> UserExistsEmail(string emailAddress)
         {
-            bool result = true;
+            int? result = null;
+
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
             {
                 await conn.OpenAsync();
@@ -55,16 +48,10 @@ namespace Server.Database
                     cmd.Parameters.AddWithValue("@mail", emailAddress);
 
                     MySqlDataReader dataReader = cmd.ExecuteReader();
-                    result = await dataReader.ReadAsync();
-
-                    if (result)
+                    if (dataReader.Read())
                     {
-                        result = true;
+                        result = dataReader.GetInt32(0);
                     } 
-                    else
-                    {
-                        result = false;
-                    }
                 }
                 catch (MySqlException ex)
                 {
@@ -76,17 +63,14 @@ namespace Server.Database
         }
 
         /// <summary>
-        /// créer un utilisateur temporaire et renvoie le mot de passe temporaire
+        /// crÃ©er un utilisateur temporaire et renvoie le mot de passe temporaire
         /// </summary>
         /// <param name="email"></param>
         /// <param name="username"></param>
         /// <returns></returns>
-        static public async Task<byte[]> CreateTemp(string email, string username)
+        static public async Task<bool> CreateTemp(string email, string username, string password)
         {
-
-            string sel = Utils.Utils.RandomPassword(32);
-            byte[] password = Utils.Utils.BtoH(Utils.Utils.RandomPassword(10),sel);
-            
+            string sel = Util.RandomPassword(32);
             
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
             {
@@ -99,11 +83,12 @@ namespace Server.Database
                     MySqlCommand cmd = new MySqlCommand(query, conn);
                     cmd.Parameters.AddWithValue("@adresse_mail",email );
                     cmd.Parameters.AddWithValue("@nom_compte", username);
-                    cmd.Parameters.AddWithValue("@password", password);
+                    cmd.Parameters.AddWithValue("@password", Util.BtoH(password, sel));
                     cmd.Parameters.AddWithValue("@date_creation", DateTime.Now);
                     cmd.Parameters.AddWithValue("@sel", sel);
 
                     await cmd.ExecuteNonQueryAsync();
+                    return true;
                 }
                 catch (MySqlException ex)
                 {
@@ -111,7 +96,7 @@ namespace Server.Database
                 }
             }
 
-            return password;
+            return false;
         }
 
         /// <summary>
@@ -120,36 +105,46 @@ namespace Server.Database
         /// <param name="username"></param>
         /// <param name="password"></param>
         /// <returns></returns>
-        static public async Task<int?> CheckUsernamePassword(string username, string password)
+        static public async Task<(int?, bool)> CheckUsernamePassword(string username, string password)
         {
             int? result = null;
-            bool exist;
-
+            bool validate = false;
 
             using (MySqlConnection conn = DatabaseConnection.NewConnection())
             {
                 await conn.OpenAsync();
 
                 string query = "select SEL from JOUEUR where NOM_COMPTE = @nomcompte ;";
-                string query2 = "select ID_JOUEUR from JOUEUR where NOM_COMPTE = @nomcompte and MDP = @mdp ;";
+                string query2 = "select ID_JOUEUR , VALIDE from JOUEUR where NOM_COMPTE = @nomcompte and MDP = @mdp ;";
          
                 try
                 {
                     MySqlCommand cmd = new MySqlCommand(query, conn);
                     cmd.Parameters.AddWithValue("@nomcompte", username);
-                    MySqlDataReader dataReader1 = cmd.ExecuteReader();
-                    string sel = dataReader1.GetString(0);
+                    string sel;
+                    using (MySqlDataReader dataReader = cmd.ExecuteReader())
+                    {
+                        dataReader.Read();
+                        sel = dataReader.GetString(0);
+                    }
                     cmd = new MySqlCommand(query2, conn);
                     cmd.Parameters.AddWithValue("@nomcompte", username);
-                    cmd.Parameters.AddWithValue("@mdp", Utils.Utils.BtoH(password,sel));
-                    result = dataReader1.GetInt32(0);
+                    cmd.Parameters.AddWithValue("@mdp", Util.BtoH(password,sel));
+                    using (MySqlDataReader dataReader = cmd.ExecuteReader())
+                    {
+                        if (dataReader.Read())
+                        {
+                            result = dataReader.GetInt32(0);
+                            validate = dataReader.GetBoolean(1);
+                        }
+                    }
                 }
                 catch (MySqlException ex)
                 {
                     Console.WriteLine(ex.Message);
                 }
             }
-            return result;
+            return (result,validate);
         }
 
         static public async Task<bool> CreateSession(int userId, string sessionToken)
@@ -208,7 +203,7 @@ namespace Server.Database
             {
                 await conn.OpenAsync();
 
-                string query = "select ID_JOUEUR from SESSION where TOKEN = @session;";
+                string query = "select ID_JOUEUR from SESSION where TOKEN = @token;";
                 try
                 {
                     MySqlCommand cmd = new MySqlCommand(query, conn);
@@ -225,6 +220,93 @@ namespace Server.Database
                     Console.WriteLine(ex.Message);
                 }
             }
+            return result;
+        }
+
+        static public async Task<bool> ValidateUser(int id)
+        {
+            bool result = false;
+
+            using (MySqlConnection conn = DatabaseConnection.NewConnection())
+            {
+                await conn.OpenAsync();
+
+                string query = "UPDATE JOUEUR SET VALIDE = TRUE WHERE ID_JOUEUR = @id; ";
+                try
+                {
+                    MySqlCommand cmd = new MySqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@id", id);
+                    cmd.ExecuteNonQuery();
+                    result = true;
+                }
+                catch (MySqlException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        static public async Task<Model.Account?> UserInfo(int id)
+        {
+            Model.Account? result = null;
+
+            using (MySqlConnection conn = DatabaseConnection.NewConnection())
+            {
+                await conn.OpenAsync();
+
+                string query = "SELECT NOM_COMPTE, ADRESS_MAIL, VALIDE FROM JOUEUR WHERE ID_JOUEUR = @id; ";
+                try
+                {
+                    MySqlCommand cmd = new MySqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@id", id);
+                    using (MySqlDataReader reader = cmd.ExecuteReader()) 
+                    {
+                        if (reader.Read())
+                        {
+                            result = new Model.Account(
+                                reader.GetString(0),
+                                reader.GetString(1),
+                                reader.GetBoolean(2)
+                            );
+                        }
+                    }
+                }
+                catch (MySqlException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        static public async Task<bool> UpdateMDP(string mdp, int id)
+        {
+            bool result = false;
+            string salt = Util.RandomPassword(32);
+
+            using (MySqlConnection conn = DatabaseConnection.NewConnection())
+            {
+                await conn.OpenAsync();
+
+                string query = "UPDATE JOUEUR SET MDP = @mdp, SEL = @salt WHERE ID_JOUEUR = @id;";
+                try
+                {
+                    MySqlCommand cmd = new MySqlCommand(query, conn);
+                    cmd.Parameters.AddWithValue("@mdp", Util.BtoH(mdp, salt));
+                    cmd.Parameters.AddWithValue("@salt", salt);
+                    cmd.Parameters.AddWithValue("@id", id);
+                    await cmd.ExecuteNonQueryAsync();
+                    result = true;
+                }
+                catch (MySqlException ex)
+                {
+                    Console.WriteLine(ex.Message);
+                }
+            }
+
             return result;
         }
     }

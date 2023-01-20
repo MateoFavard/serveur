@@ -1,41 +1,232 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Server.Auth;
-using Serveur.Database;
-using Serveur.Model;
+using Server.Database;
+using Server.Model;
+using Server.Utils;
 using System.Text.Json;
 
-namespace Serveur.Controllers.Api
+namespace Server.Controllers.Api
 {
     [ApiController]
     [Route("api/universe")]
-    //[Authorize(AuthenticationSchemes = "Basic")]
+    [Authorize(AuthenticationSchemes = "Bearer")]
     public class UniverseController : Controller
     {
 
         [HttpPost("create")]
-        public async Task<IActionResult> Create(UniverseModel universe)
+        public async Task<IActionResult> Create(Model.Universe universe)
         {
-            string response = "";
-            //String userId = HttpContext.User.Identity!.Name!;
+            int? maybeId = HttpContext.User.UserId();
 
-            if (await Universe.InsertUniverse(name, password, owner))
-            {
-                CreateUniverseSuccess data = new CreateUniverseSuccess("Universe create successfully");
-                response = JsonSerializer.Serialize<CreateUniverseSuccess>(data);
+            if (maybeId is int id)
+                {
+                if (await Database.Universe.InsertUniverse(universe, id))
+                {
+                    return new StatusCodeResult(201);
+                }
+                else
+                {
+                    return new ContentResult {
+                        StatusCode = StatusCodes.Status500InternalServerError,
+                        ContentType = "text/plain",
+                        Content = "can't create universe",
+                    };
+                }
             }
             else
             {
-                CreateUniverseFailure data = new CreateUniverseFailure("Universe could not be created");
-                response = JsonSerializer.Serialize<CreateUniverseFailure>(data);
+                return new ContentResult {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    ContentType = "text/plain",
+                    Content = "unknown user",
+                };
             }
+        }
 
-            var result = new ContentResult
+        [HttpGet("all")]
+        public async Task<IActionResult> All()
+        {
+            int? maybeId = HttpContext.User.UserId();
+
+            if (maybeId is int id)
             {
-                Content = response,
+                var result = await Database.Universe.ReturnUniverse();
+
+                return new ContentResult {
+                    Content = JsonSerializer.Serialize<List<Model.Universe>>(result, Util.DefaultJsonOptions),
+                    ContentType = "application/json; charset=UTF-8",
+                };
+            }
+            else
+            {
+                return new ContentResult {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    ContentType = "text/plain",
+                    Content = "unknown user",
+                };
+            }
+        }
+
+
+        [HttpGet("joined")]
+        public async Task<IActionResult> Joined()
+        {
+            int? maybeId = HttpContext.User.UserId();
+
+            if (maybeId is int id)
+            {
+                var result = await Database.Universe.UniversPlayer(id);
+
+                return new ContentResult {
+                    Content = JsonSerializer.Serialize<List<Model.Universe>>(result, Util.DefaultJsonOptions),
+                    ContentType = "application/json; charset=UTF-8",
+                };
+            }
+            else
+            {
+                return new ContentResult {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    ContentType = "text/plain",
+                    Content = "unknown user",
+                };
+            }
+        }
+
+        /// <summary>
+        /// Sends back the universe of the player
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet("owned")]
+        public async Task<IActionResult> Owned()
+        {
+            int? maybeId = HttpContext.User.UserId();
+
+            if (maybeId is int id)
+            {
+                var result = await Database.Universe.UniversOwned(id);
+
+                return new ContentResult {
+                    Content = JsonSerializer.Serialize<Model.Universe>(result, Util.DefaultJsonOptions),
+                    ContentType = "application/json; charset=UTF-8",
+                };
+            }
+            else
+            {
+                return new ContentResult {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    ContentType = "text/plain",
+                    Content = "unknown user",
+                };
+            }
+        }
+
+        /// <summary>
+        /// Send back if the users had a village 
+        /// </summary>
+        /// <param name="idUniv"></param>
+        /// <returns></returns>
+        [HttpGet("{idUniv}")]
+        public async Task<IActionResult> HasVillage(int idUniv)
+        {
+            int? maybeId = HttpContext.User.UserId();
+
+            if (maybeId is int id)
+            {
+                var result = new Model.Universe()
+                {
+                    Town = await Database.Universe.PlayerHaveVillageInUnivers(id, idUniv),
+                };
+
+                return new ContentResult
+                {
+                    Content = JsonSerializer.Serialize<Model.Universe>(result, Util.DefaultJsonOptions),
+                    ContentType = "application/json; charset=UTF-8",
+                };
+            }
+            else
+            {
+                return new ContentResult
+                {
+                    StatusCode = StatusCodes.Status500InternalServerError,
+                    ContentType = "text/plain",
+                    Content = "unknown user",
+                };
+            }
+        }
+
+
+        /// <summary>
+        /// Send the major faction of an universe
+        /// </summary>
+        /// <param name="idUniv"></param>
+        /// <returns></returns>
+        [HttpGet("faction/{idUniv}")]
+        public async Task<IActionResult> GetMajorFaction(int idUniv)
+        {
+            var result = new { Faction = await Database.Universe.MajoritaryFaction(idUniv) };
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
+                ContentType = "application/json; charset=UTF-8",
+
+            };
+        }
+
+
+        /// <summary>
+        /// Send the major faction of an universe
+        /// </summary>
+        /// <param name="idUniv"></param>
+        /// <returns></returns>
+        [HttpGet("count/{idUniv}")]
+        public async Task<IActionResult> GetCountVillage(int idUniv)
+        {
+            var result = new { NumberVillage = await Database.Universe.GetVillageCountInUniverse(idUniv) };
+
+            return new ContentResult
+            {
+                Content = JsonSerializer.Serialize(result),
                 ContentType = "application/json; charset=UTF-8",
             };
-            return result;
         }
+
+
+
+        [HttpPost("access/{idUniv}")]
+        public async Task<IActionResult> AccessUniverse(int idUniv,Model.Universe u)
+        {
+
+            string mdp = "";
+
+            if (!string.IsNullOrEmpty(u.Password))
+            {
+                mdp += u.Password;
+            }
+
+            ContentResult result = new ContentResult
+            {
+                StatusCode = StatusCodes.Status500InternalServerError,
+                ContentType = "text/plain",
+            };
+
+            if (await Database.Universe.VerifyAccess(idUniv, mdp))
+            {
+                result.StatusCode = StatusCodes.Status200OK;
+                result.Content = "Success";
+
+            }
+            else
+            {
+                result.StatusCode = StatusCodes.Status200OK;
+                result.Content = "Error";
+            }
+
+            return result;
+
+
+        }
+
     }
 }

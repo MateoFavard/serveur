@@ -42,7 +42,7 @@ namespace Server.Auth
             int? maybeUserId = await Account.CheckTokenSession(token);
             if (maybeUserId is int userId)
             {
-                var identity = new UserIdentity("Bearer", userId);
+                var identity = new UserIdentity("Bearer", userId, true);
                 var principal = new ClaimsPrincipal(identity);
                 var ticket = new AuthenticationTicket(principal, Scheme.Name);
                 return AuthenticateResult.Success(ticket);

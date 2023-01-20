@@ -8,37 +8,57 @@ namespace Server.Utils
 {
 	public class Email : MimeMessage, IDisposable
 	{
-		static private SmtpClient _smtpClient = new SmtpClient();
-		static private BlockingCollection<Email> _messageQueue = new BlockingCollection<Email>();
-		static private String _ADDRESS = Environment.GetEnvironmentVariable("BOT_EMAIL_ADDRESS") ?? "";
-		static private String _PASSWORD = Environment.GetEnvironmentVariable("BOT_EMAIL_PASSWORD") ?? "";
+		static private SmtpClient smtpClient = new SmtpClient();
+		static private BlockingCollection<Email> messageQueue = new BlockingCollection<Email>();
+
+		static private String ADDRESS = Environment.GetEnvironmentVariable("BOT_EMAIL_ADDRESS") ?? "";
+		static private String PASSWORD = Environment.GetEnvironmentVariable("BOT_EMAIL_PASSWORD") ?? "";
+
+		private const int MAX_RETRIES = 5;
+		static private TimeSpan STANDBY_DELAY = TimeSpan.FromMinutes(30);
 
 		static public void SendMessages()
 		{
-			/*
-			Email._smtpClient.Connect("iut-dijon.u-bourgogne.fr", 25, SecureSocketOptions.StartTls);
-			Email._smtpClient.Authenticate(Email._ADDRESS, Email._PASSWORD);
-			
 			while (true)
 			{
-				Console.WriteLine("Waiting for emails to send ...");
-				Email message = Email._messageQueue.Take();
-				try {
-					Console.WriteLine("Sending email ...");
-					Email._smtpClient.Send(message);
-					Console.WriteLine("Email sent successfully");
-				}
-				catch (Exception e)
+				Email? message = Email.messageQueue.Take();
+
+				Console.WriteLine("[EMAIL] Waking up...");
+				Email.smtpClient.Connect("iut-dijon.u-bourgogne.fr", 25, SecureSocketOptions.StartTls);
+				Email.smtpClient.Authenticate(Email.ADDRESS, Email.PASSWORD);
+
+				do
 				{
-					Console.WriteLine("Couldn't send email: {0}", e);
-				}
+					try
+					{
+						Console.WriteLine("[EMAIL] Sending message ...");
+						Email.smtpClient.Send(message);
+						Console.WriteLine("[EMAIL] Message sent successfully");
+					}
+					catch (Exception e)
+					{
+						Console.WriteLine("[EMAIL] Couldn't send message: {0}", e);
+						if (++message.retries < MAX_RETRIES)
+						{
+							Console.WriteLine("[EMAIL] Retrying to send message (tries: {0})", message.retries);
+							Email.messageQueue.Add(message);
+						}
+						else
+                        {
+							Console.WriteLine("[EMAIL] Maximum retry count exceeded");
+						}
+					}
+				} while (Email.messageQueue.TryTake(out message, Email.STANDBY_DELAY));
+
+				Email.smtpClient.Disconnect(true);
 			}
-			//*/
 		}
+
+		private int retries;
 
 		public Email(String recipient, String subject, String body) : base ()
 		{
-			this.From.Add(new MailboxAddress("Lord Of The Dungeons", Email._ADDRESS));
+			this.From.Add(new MailboxAddress("Lord Of The Dungeons", Email.ADDRESS));
 			this.To.Add(MailboxAddress.Parse(recipient));
 
 			this.Subject = subject;
@@ -48,8 +68,8 @@ namespace Server.Utils
 
 		public void Send()
 		{
-			Console.WriteLine("Email is ready to be sent");
-			Email._messageQueue.Add(this);
+			Email.messageQueue.Add(this);
+			Console.WriteLine("[EMAIL] Message ready to be sent");
 		}
 	}
 }
